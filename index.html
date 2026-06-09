@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Neon Tic Tac Toe</title>
+    <style>
+        body {
+            background-color: #0a0022;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        h1 {
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 40px #00f5ff;
+        }
+        .board-container {
+            position: relative;
+            width: max-content;
+            padding: 10px;
+            background-color: #0a0022;
+            border-radius: 20px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: #1a0044;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3rem;
+            border-radius: 15px;
+            box-shadow: 0 0 10px #000, 0 0 20px #000 inset;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.3s, background-color 0.3s;
+        }
+        .cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px #000, 0 0 40px #000 inset;
+        }
+        .cell.x {
+            color: #00f5ff;
+            text-shadow: 0 0 8px #00f5ff, 0 0 15px #00f5ff, 0 0 30px #00f5ff;
+        }
+        .cell.o {
+            color: #ff1a75;
+            text-shadow: 0 0 8px #ff1a75, 0 0 15px #ff1a75, 0 0 30px #ff1a75;
+        }
+        .status {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 10px;
+            background-color: #222;
+            color: white;
+            box-shadow: 0 0 5px #00f5ff, 0 0 10px #00f5ff inset;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        button:hover {
+            background-color: #333;
+            box-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff inset;
+        }
+        .win-line {
+            position: absolute;
+            background-color: #00ff99;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            transform-origin: center;
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 0 15px #00ff99, 0 0 30px #00ff99;
+        }
+        @media (max-width: 500px) {
+            .board {
+                grid-template-columns: repeat(3, 80px);
+                grid-template-rows: repeat(3, 80px);
+                gap: 8px;
+            }
+            .cell {
+                width: 80px;
+                height: 80px;
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Neon Tic Tac Toe</h1>
+    <div class="board-container" id="boardContainer">
+        <div class="board" id="board"></div>
+        <div class="win-line" id="winLine" style="display: none;"></div>
+    </div>
+    <div class="status" id="status">Player X's turn</div>
+    <button onclick="resetGame()">Reset Game</button>
+
+    <audio id="placeSound" src="https://actions.google.com/sounds/v1/cartoon/soft_bounce.ogg"></audio>
+    <audio id="winSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+    <audio id="drawSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+
+    <script>
+        const boardElement = document.getElementById('board');
+        const statusElement = document.getElementById('status');
+        const winLine = document.getElementById('winLine');
+        const boardContainer = document.getElementById('boardContainer');
+        const placeSound = document.getElementById('placeSound');
+        const winSound = document.getElementById('winSound');
+        const drawSound = document.getElementById('drawSound');
+
+        let board = [
+            ["", "", ""],
+            ["", "", ""],
+            ["", "", ""]
+        ];
+        let currentPlayer = "X";
+        let gameOver = false;
+
+        function createBoard() {
+            boardElement.innerHTML = "";
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const cell = document.createElement("div");
+                    cell.classList.add("cell");
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    cell.addEventListener("click", handleCellClick);
+                    cell.textContent = board[row][col];
+                    if(board[row][col] === "X"){
+                        cell.classList.add("x");
+                    }
+                    if(board[row][col] === "O"){
+                        cell.classList.add("o");
+                    }
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellClick(event) {
+            if (gameOver) return;
+            const row = parseInt(event.target.dataset.row);
+            const col = parseInt(event.target.dataset.col);
+            if (board[row][col] !== "") return;
+
+            board[row][col] = currentPlayer;
+            placeSound.play();
+            createBoard();
+
+            const win = checkWin(currentPlayer);
+            if (win) {
+                statusElement.textContent = `Player ${currentPlayer} wins!`;
+                gameOver = true;
+                showWinLine(win);
+                winSound.play();
+                return;
+            }
+
+            if (checkDraw()) {
+                statusElement.textContent = "It's a draw!";
+                gameOver = true;
+                drawSound.play();
+                return;
+            }
+
+            currentPlayer = currentPlayer === "X" ? "O" : "X";
+            statusElement.textContent = `Player ${currentPlayer}'s turn`;
+        }
+
+        function checkWin(player) {
+            const lines = [
+                [{r:0,c:0},{r:0,c:1},{r:0,c:2}],
+                [{r:1,c:0},{r:1,c:1},{r:1,c:2}],
+                [{r:2,c:0},{r:2,c:1},{r:2,c:2}],
+                [{r:0,c:0},{r:1,c:0},{r:2,c:0}],
+                [{r:0,c:1},{r:1,c:1},{r:2,c:1}],
+                [{r:0,c:2},{r:1,c:2},{r:2,c:2}],
+                [{r:0,c:0},{r:1,c:1},{r:2,c:2}],
+                [{r:0,c:2},{r:1,c:1},{r:2,c:0}],
+            ];
+
+            for (let line of lines) {
+                if (line.every(cell => board[cell.r][cell.c] === player)) {
+                    return line;
+                }
+            }
+            return null;
+        }
+
+        function checkDraw() {
+            return board.flat().every(cell => cell !== "");
+        }
+
+        function resetGame() {
+            board = [
+                ["", "", ""],
+                ["", "", ""],
+                ["", "", ""]
+            ];
+            currentPlayer = "X";
+            gameOver = false;
+            winLine.style.display = "none";
+            statusElement.textContent = `Player ${currentPlayer}'s turn`;
+            createBoard();
+        }
+
+        function showWinLine(line) {
+            winLine.style.display = "block";
+            const cell1 = getCellElement(line[0]);
+            const cell3 = getCellElement(line[2]);
+
+            const rect1 = cell1.getBoundingClientRect();
+            const rect3 = cell3.getBoundingClientRect();
+            const containerRect = boardContainer.getBoundingClientRect();
+
+            const x1 = rect1.left + rect1.width / 2 - containerRect.left;
+            const y1 = rect1.top + rect1.height / 2 - containerRect.top;
+            const x3 = rect3.left + rect3.width / 2 - containerRect.left;
+            const y3 = rect3.top + rect3.height / 2 - containerRect.top;
+
+            // Ensure line stays within board by slightly reducing length
+            const padding = 10; // padding inside container
+            const angle = Math.atan2(y3 - y1, x3 - x1) * 180 / Math.PI;
+            const length = Math.hypot(x3 - x1, y3 - y1) - padding;
+
+            winLine.style.width = `${length}px`;
+            winLine.style.height = `5px`;
+            winLine.style.left = `${(x1 + x3) / 2}px`;
+            winLine.style.top = `${(y1 + y3) / 2}px`;
+            winLine.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+        }
+
+        function getCellElement(cell) {
+            return document.querySelector(`.cell[data-row='${cell.r}'][data-col='${cell.c}']`);
+        }
+
+        createBoard();
+    </script>
+</body>
+</html>
